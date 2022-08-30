@@ -415,6 +415,24 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     # df['Input Date'] = df['Input Date'].dt.date
                     # df['Con Input Date'] = pd.to_datetime(df['Con Input Date'],  utc=False)
                     # df['Con Input Date'] = df['Con Input Date'].dt.date
+
+                elif 'BNP_UNREALIZED' in tablename:
+                    final_table_columns = ['COB', 'ACCOUNT', 'EXCHANGE_CODE', 'MAT_MONTH', 'MAT_YEAR', 'SIGNED_QTY', 'Month','Total Quantity','INSERT_DATE', 'UPDATE_DATE']
+                    df = df[df.columns.intersection(final_table_columns)]
+                    df = df[final_table_columns]
+                    df['COB']= df['COB'].dt.date
+                    df['Month']= df['Month'].dt.date
+
+                elif 'MACQUARIE_UNREALIZED' in tablename:
+                    final_table_columns = ['Exchange Instrument Code', 'Delivery Month', 'Buy/(Sell)', 'Total Quantity (Gallons)', 'Input Date','INSERT_DATE', 'UPDATE_DATE']
+                    df = df[df.columns.intersection(final_table_columns)]
+                    df = df[final_table_columns]
+                    df['Delivery Month']= df['Delivery Month'].dt.date
+                    df = df.dropna()
+                    df = df.reset_index(drop=True)
+                    df['Input Date'] = df['Input Date'].astype('datetime64[ns]')
+        
+    
                 df.to_csv(csv_file, index=False, date_format='%Y-%m-%d %H:%M:%S')
 
                 # Run DDL statement, create table if not exists
