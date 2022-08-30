@@ -550,7 +550,7 @@ if __name__ == "__main__":
         # Connecting to Sharepoint and downloading the file with sync params
         s = sharepy.connect(site, username, password)
         logging.info("Connected to sharepoint")
-        spfile = r'SNOWFLAKE_SYNC_PARAMS.xlsx'
+        spfile = r'SNOWFLAKE_SYNC_PARAMS1.xlsx'
         local_dir = r'C:/temp/'
 
         (r, df_driver) = spdownload(s, "/IT", spfile, 'PARAMS')
