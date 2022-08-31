@@ -271,6 +271,10 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 if df is None:
                     # File could not be retrieved, move onto next row in table
                     continue
+                 # To drop blank columns having header names Unnamed ex: Unnamed:0,Unnamed:1
+                delete_column_list = []
+                [delete_column_list.append(x) if 'Unnamed' in x else print(x) for x in df.columns]
+                df.drop(delete_column_list, axis = 1, inplace = True)
                 primary_key_list = []
                 table = schemaname + '.' + tablename
                 query_primary_key = f'''SHOW PRIMARY KEYS IN {table}'''
@@ -400,6 +404,17 @@ def upload_df_driver_to_db(df_driver,con_abort):
 
                 # Everything looks good to proceed, save as csv file
                 csv_file = r'c:/temp/risk_sharepoint_snowflake.csv'
+                # Run DDL statement, create table if not exists
+                
+                
+
+                conn = get_connection(role=f'OWNER_{databasename}',
+                                    database=databasename, schema=schemaname)
+                conn.cursor().execute('USE WAREHOUSE BUIT_WH')
+                conn.cursor().execute('USE DATABASE {}'.format(databasename))
+                conn.cursor().execute('USE SCHEMA {}'.format(schemaname))
+                # conn.cursor().execute(sql)
+                
                 #Droping trade date from bnp_volume
                 if 'MACQUAIRE_VOLUME' in tablename:
                     final_table_columns = ['Commodity Code', 'Exchange Instrument Code', 'Future/Option', 'Delivery Month', 'Product Name', 'Total Quantity (Gallons)', 'INSERT_DATE', 'UPDATE_DATE']
@@ -417,39 +432,43 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     # df['Con Input Date'] = df['Con Input Date'].dt.date
 
                 elif 'BNP_UNREALIZED' in tablename:
-                    final_table_columns = ['COB', 'ACCOUNT', 'EXCHANGE_CODE', 'MAT_MONTH', 'MAT_YEAR', 'SIGNED_QTY', 'Month','Total Quantity','INSERT_DATE', 'UPDATE_DATE']
+                    event = True
+                    final_table_columns = ['COB', 'ACCOUNT', 'EXCHANGE_CODE', 'MAT_MONTH', 'MAT_YEAR', 'SIGNED_QTY', 'MONTH','TOTAL_QUANTITY','INSERT_DATE', 'UPDATE_DATE']
                     df = df[df.columns.intersection(final_table_columns)]
                     df = df[final_table_columns]
-                    df['COB']= df['COB'].dt.date
-                    df['Month']= df['Month'].dt.date
-
-                elif 'MACQUARIE_UNREALIZED' in tablename:
-                    final_table_columns = ['Exchange Instrument Code', 'Delivery Month', 'Buy/(Sell)', 'Total Quantity (Gallons)', 'Input Date','INSERT_DATE', 'UPDATE_DATE']
-                    df = df[df.columns.intersection(final_table_columns)]
-                    df = df[final_table_columns]
-                    df['Delivery Month']= df['Delivery Month'].dt.date
                     df = df.dropna()
                     df = df.reset_index(drop=True)
-                    df['Input Date'] = df['Input Date'].astype('datetime64[ns]')
-        
-    
+                    df['COB']= df['COB'].dt.date
+                    df['MONTH']= df['MONTH'].dt.date
+                    current_cob_date = datetime.strftime(df['COB'][0], '%Y-%m-%d')
+                    delete_query=f'''delete from {schemaname}.{tablename} where contains(COB,'{current_cob_date}')'''
+                    cur = conn.cursor()
+                    cur.execute(delete_query)
+
+                elif 'MACQUARIE_UNREALIZED' in tablename:
+                    event = True
+                    final_table_columns = ['EXCHANGE_INSTRUMENT_CODE', 'DELIVERY_MONTH', 'BUYSELL', 'TOTAL_QUANTITY_GALLONS', 'INPUT_DATE','INSERT_DATE', 'UPDATE_DATE']
+                    df = df[df.columns.intersection(final_table_columns)]
+                    df = df[final_table_columns]
+                    df = df.dropna()
+                    df = df.reset_index(drop=True)
+                    df['INPUT_DATE'] = df['INPUT_DATE'].astype('datetime64[ns]')
+                    df['DELIVERY_MONTH']= df['DELIVERY_MONTH'].dt.date
+                    current_input_date = datetime.strftime(df['INPUT_DATE'][0], '%Y-%m-%d')
+                    delete_query=f'''delete from {schemaname}.{tablename} where contains(INPUT_DATE,'{current_input_date}')'''
+                    cur = conn.cursor()
+                    cur.execute(delete_query) 
+
+
                 df.to_csv(csv_file, index=False, date_format='%Y-%m-%d %H:%M:%S')
 
-                # Run DDL statement, create table if not exists
                 
-                
-
-                conn = get_connection(role=f'OWNER_{databasename}',
-                                    database=databasename, schema=schemaname)
-                conn.cursor().execute('USE WAREHOUSE BUIT_WH')
-                conn.cursor().execute('USE DATABASE {}'.format(databasename))
-                conn.cursor().execute('USE SCHEMA {}'.format(schemaname))
-                # conn.cursor().execute(sql)
 
                 # Truncate table, remove staging file if any, upload file to staging,
                 # and copy into table
-                conn.cursor().execute("truncate table {}".format(tablename))
-                conn.cursor().execute("remove @%{}".format(tablename))
+                if not event:
+                    conn.cursor().execute("truncate table {}".format(tablename))
+                    conn.cursor().execute("remove @%{}".format(tablename))
                 if add_insert:
                     conn.cursor().execute("alter table {} add column INSERT_DATE datetime".format(tablename))
                     print("insert date column added")
@@ -489,7 +508,8 @@ def upload_df_driver_to_db(df_driver,con_abort):
             except Exception as e:
                 # Time travle for no table empty 
                 # conn.cursor().execute("select * from {} at(offset => -60*35)".format(tablename))
-                conn.cursor().execute("insert into {0}.{1}.{2} select * from {0}.{1}.{2} at(offset => -60*35)".format(databasename,schemaname,tablename))   
+                if tablename!='MACQUARIE_UNREALIZED' or tablename!='BNP_UNREALIZED':
+                    conn.cursor().execute("insert into {0}.{1}.{2} select * from {0}.{1}.{2} at(offset => -60*35)".format(databasename,schemaname,tablename))   
 
 
                 try:

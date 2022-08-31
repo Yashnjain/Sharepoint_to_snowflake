@@ -270,6 +270,10 @@ def upload_df_driver_to_db(df_driver):
             if df is None:
                 # File could not be retrieved, move onto next row in table
                 continue
+            # To drop blank columns having header names Unnamed ex: Unnamed:0,Unnamed:1
+            delete_column_list = []
+            [delete_column_list.append(x) if 'Unnamed' in x else print(x) for x in df.columns]
+            df.drop(delete_column_list, axis = 1, inplace = True)
             primary_key_list = []
             table = schemaname + '.' + tablename
             query_primary_key = f'''SHOW PRIMARY KEYS IN {table}'''
@@ -282,9 +286,11 @@ def upload_df_driver_to_db(df_driver):
                 for j in range(0, len(result)):
                     primary_key_list.append(result[j][4].upper())
                 print("Primary keys for table are ", primary_key_list)
+                if 'BNP_UNREALIZED' in tablename or 'MACQUARIE_UNREALIZED' in tablename:
+                    df.columns = [x.replace(" ","_") for x in df.columns]
                 df.columns = [re.sub(r'\W', '', x.upper()) for x in df.columns]
                 print(df)
-                df.rename({'TOTALQUANTITYLOTSSIZE': 'TOTAL_QUANTITY', 'TOTALQUANTITY': 'TOTAL_QUANTITY'}, axis=1, inplace=True)
+                # df.rename({'TOTALQUANTITYLOTSSIZE': 'TOTAL_QUANTITY', 'TOTALQUANTITY': 'TOTAL_QUANTITY'}, axis=1, inplace=True)
                 
                 df.drop_duplicates(subset=primary_key_list,
                                    keep='first', inplace=True)
@@ -401,6 +407,11 @@ def upload_df_driver_to_db(df_driver):
 
             # Everything looks good to proceed, save as csv file
             csv_file = r'c:/temp/risk_sharepoint_snowflake.csv'
+            conn = get_connection(role=f'OWNER_{databasename}',
+                                  database=databasename, schema=schemaname)
+            conn.cursor().execute('USE WAREHOUSE BUIT_WH')
+            conn.cursor().execute('USE DATABASE {}'.format(databasename))
+            conn.cursor().execute('USE SCHEMA {}'.format(schemaname))
             #Droping trade date from bnp_volume
             if 'MACQUAIRE_VOLUME' in tablename:
                 final_table_columns = ['Commodity Code', 'Exchange Instrument Code', 'Future/Option', 'Delivery Month', 'Product Name', 'Total Quantity (Gallons)', 'INSERT_DATE', 'UPDATE_DATE']
@@ -416,23 +427,50 @@ def upload_df_driver_to_db(df_driver):
                 # df['Input Date'] = df['Input Date'].dt.date
                 # df['Con Input Date'] = pd.to_datetime(df['Con Input Date'],  utc=False)
                 # df['Con Input Date'] = df['Con Input Date'].dt.date
+            elif 'BNP_UNREALIZED' in tablename:
+                event = True
+                final_table_columns = ['COB', 'ACCOUNT', 'EXCHANGE_CODE', 'MAT_MONTH', 'MAT_YEAR', 'SIGNED_QTY', 'MONTH','TOTAL_QUANTITY','INSERT_DATE', 'UPDATE_DATE']
+                df = df[df.columns.intersection(final_table_columns)]
+                df = df[final_table_columns]
+                df = df.dropna()
+                df = df.reset_index(drop=True)
+                df['COB']= df['COB'].dt.date
+                df['MONTH']= df['MONTH'].dt.date
+                current_cob_date = datetime.strftime(df['COB'][0], '%Y-%m-%d')
+                delete_query=f'''delete from {schemaname}.{tablename} where contains(COB,'{current_cob_date}')'''
+                cur = conn.cursor()
+                cur.execute(delete_query)
+               
+
+            elif 'MACQUARIE_UNREALIZED' in tablename:
+                event = True
+                final_table_columns = ['EXCHANGE_INSTRUMENT_CODE', 'DELIVERY_MONTH', 'BUYSELL', 'TOTAL_QUANTITY_GALLONS', 'INPUT_DATE','INSERT_DATE', 'UPDATE_DATE']
+                df = df[df.columns.intersection(final_table_columns)]
+                df = df[final_table_columns]
+                df = df.dropna()
+                df = df.reset_index(drop=True)
+                df['INPUT_DATE'] = df['INPUT_DATE'].astype('datetime64[ns]')
+                df['DELIVERY_MONTH']= df['DELIVERY_MONTH'].dt.date
+                current_input_date = datetime.strftime(df['INPUT_DATE'][0], '%Y-%m-%d')
+                delete_query=f'''delete from {schemaname}.{tablename} where contains(INPUT_DATE,'{current_input_date}')'''
+                cur = conn.cursor()
+                cur.execute(delete_query)
+                
+        
             df.to_csv(csv_file, index=False, date_format='%Y-%m-%d %H:%M:%S')
 
             # Run DDL statement, create table if not exists
             
             
 
-            conn = get_connection(role=f'OWNER_{databasename}',
-                                  database=databasename, schema=schemaname)
-            conn.cursor().execute('USE WAREHOUSE BUIT_WH')
-            conn.cursor().execute('USE DATABASE {}'.format(databasename))
-            conn.cursor().execute('USE SCHEMA {}'.format(schemaname))
+           
             # conn.cursor().execute(sql)
 
             # Truncate table, remove staging file if any, upload file to staging,
             # and copy into table
-            conn.cursor().execute("truncate table {}".format(tablename))
-            conn.cursor().execute("remove @%{}".format(tablename))
+            if not event:
+                conn.cursor().execute("truncate table {}".format(tablename))
+                conn.cursor().execute("remove @%{}".format(tablename))
             if add_insert:
                 conn.cursor().execute("alter table {} add column INSERT_DATE datetime".format(tablename))
                 print("insert date column added")
