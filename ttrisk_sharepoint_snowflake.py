@@ -433,6 +433,8 @@ def upload_df_driver_to_db(df_driver,con_abort):
 
                 elif 'BNP_UNREALIZED' in tablename:
                     event = True
+                    df.columns = [x.replace(" ","_") for x in df.columns]
+                    df.columns = [re.sub(r'\W', '', x.upper()) for x in df.columns]
                     final_table_columns = ['COB', 'ACCOUNT', 'EXCHANGE_CODE', 'MAT_MONTH', 'MAT_YEAR', 'SIGNED_QTY', 'MONTH','TOTAL_QUANTITY','INSERT_DATE', 'UPDATE_DATE']
                     df = df[df.columns.intersection(final_table_columns)]
                     df = df[final_table_columns]
@@ -447,6 +449,8 @@ def upload_df_driver_to_db(df_driver,con_abort):
 
                 elif 'MACQUARIE_UNREALIZED' in tablename:
                     event = True
+                    df.columns = [x.replace(" ","_") for x in df.columns]
+                    df.columns = [re.sub(r'\W', '', x.upper()) for x in df.columns]
                     final_table_columns = ['EXCHANGE_INSTRUMENT_CODE', 'DELIVERY_MONTH', 'BUYSELL', 'TOTAL_QUANTITY_GALLONS', 'INPUT_DATE','INSERT_DATE', 'UPDATE_DATE']
                     df = df[df.columns.intersection(final_table_columns)]
                     df = df[final_table_columns]
