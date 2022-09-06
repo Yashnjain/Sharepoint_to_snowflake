@@ -228,7 +228,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 # Assign a random job id for linking job status purpose for the same file.
                 # For example, a job "Started", you want to have one "Completed", or "Abandoned",
                 # or "Failed" with the same JOB_ID.
-                
+                event = False
                 JOB_ID = np.random.randint(1000000, 9999999)
                 # Get job related information
                 pathname = x['XLSXFILELOCATION'] + "/"
