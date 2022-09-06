@@ -238,7 +238,8 @@ def upload_df_driver_to_db(df_driver):
             
             # databasename = 'POWERDB'
             databasename = x['DATABASENAME']
-            schemaname = databasename + '.' + str(x['SCHEMA']).upper().strip()
+            # schemaname = databasename + '.' + str(x['SCHEMA']).upper().strip()
+            schemaname = str(x['SCHEMA']).upper().strip()
             tablename = re.sub(r'\W', '', str(x['TABLENAME']).upper().strip())
             column_preserve = str(x['COLUMN_PRESERVE']).upper().strip()
             min_rows = x['ROW_CHECK_MINIMUM']
@@ -275,7 +276,7 @@ def upload_df_driver_to_db(df_driver):
             [delete_column_list.append(x) if 'Unnamed' in x else print(x) for x in df.columns]
             df.drop(delete_column_list, axis = 1, inplace = True)
             primary_key_list = []
-            table = schemaname + '.' + tablename
+            table = databasename + '.' + schemaname + '.' + tablename
             query_primary_key = f'''SHOW PRIMARY KEYS IN {table}'''
             conn = get_connection(role=f'OWNER_{databasename}',
                                   database=databasename, schema=schemaname)

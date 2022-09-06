@@ -239,7 +239,8 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 
                 # databasename = 'POWERDB'
                 databasename = x['DATABASENAME']
-                schemaname = databasename + '.' + str(x['SCHEMA']).upper().strip()
+                # schemaname = databasename + '.' + str(x['SCHEMA']).upper().strip()
+                schemaname = str(x['SCHEMA']).upper().strip()
                 tablename = re.sub(r'\W', '', str(x['TABLENAME']).upper().strip())
                 column_preserve = str(x['COLUMN_PRESERVE']).upper().strip()
                 min_rows = x['ROW_CHECK_MINIMUM']
@@ -276,7 +277,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 [delete_column_list.append(x) if 'Unnamed' in x else print(x) for x in df.columns]
                 df.drop(delete_column_list, axis = 1, inplace = True)
                 primary_key_list = []
-                table = schemaname + '.' + tablename
+                table = databasename + '.' + schemaname + '.' + tablename
                 query_primary_key = f'''SHOW PRIMARY KEYS IN {table}'''
                 conn = get_connection(role=f'OWNER_{databasename}',
                                     database=databasename, schema=schemaname)
@@ -443,7 +444,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     df['COB']= df['COB'].dt.date
                     df['MONTH']= df['MONTH'].dt.date
                     current_cob_date = datetime.strftime(df['COB'][0], '%Y-%m-%d')
-                    delete_query=f'''delete from {schemaname}.{tablename} where contains(COB,'{current_cob_date}')'''
+                    delete_query=f'''delete from {databasename}.{schemaname}.{tablename} where contains(COB,'{current_cob_date}')'''
                     cur = conn.cursor()
                     cur.execute(delete_query)
 
@@ -459,7 +460,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     df['INPUT_DATE'] = df['INPUT_DATE'].astype('datetime64[ns]')
                     df['DELIVERY_MONTH']= df['DELIVERY_MONTH'].dt.date
                     current_input_date = datetime.strftime(df['INPUT_DATE'][0], '%Y-%m-%d')
-                    delete_query=f'''delete from {schemaname}.{tablename} where contains(INPUT_DATE,'{current_input_date}')'''
+                    delete_query=f'''delete from {databasename}.{schemaname}.{tablename} where contains(INPUT_DATE,'{current_input_date}')'''
                     cur = conn.cursor()
                     cur.execute(delete_query) 
 
