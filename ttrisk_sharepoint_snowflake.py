@@ -237,7 +237,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 sheetname = x['SHEETNAME'].split(";")
                 jobname = x['DEPARTMENT']
                 
-                # databasename = 'POWERDB'
+                # databasename = 'POWERDB_DEV'
                 databasename = x['DATABASENAME']
                 # schemaname = databasename + '.' + str(x['SCHEMA']).upper().strip()
                 schemaname = str(x['SCHEMA']).upper().strip()
@@ -457,6 +457,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     df = df[final_table_columns]
                     df = df.dropna()
                     df = df.reset_index(drop=True)
+                    df['EXCHANGE_INSTRUMENT_CODE'] = df['EXCHANGE_INSTRUMENT_CODE'].apply(lambda x: x.strip())
                     df['INPUT_DATE'] = df['INPUT_DATE'].astype('datetime64[ns]')
                     df['DELIVERY_MONTH']= df['DELIVERY_MONTH'].dt.date
                     current_input_date = datetime.strftime(df['INPUT_DATE'][0], '%Y-%m-%d')
@@ -593,7 +594,7 @@ if __name__ == "__main__":
         # Connecting to Sharepoint and downloading the file with sync params
         s = sharepy.connect(site, username, password)
         logging.info("Connected to sharepoint")
-        spfile = r'SNOWFLAKE_SYNC_PARAMS1.xlsx'
+        spfile = r'SNOWFLAKE_SYNC_PARAMS.xlsx'
         local_dir = r'C:/temp/'
 
         (r, df_driver) = spdownload(s, "/IT", spfile, 'PARAMS')
