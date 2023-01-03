@@ -291,8 +291,8 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 column_preserve = str(x['COLUMN_PRESERVE']).upper().strip()
                 min_rows = x['ROW_CHECK_MINIMUM']
                 # to_addr = [addr for addr in str(x['EMAIL_LIST']).split(';') if '@' in addr]
-                # to_addr = str(x['EMAIL_LIST']).replace(';', ',')
-                to_addr = 'priyanka.solanki@biourja.com'
+                to_addr = str(x['EMAIL_LIST']).replace(';', ',')
+                # to_addr = 'priyanka.solanki@biourja.com'
                 variable_dict = dict(((k, eval(k)) for k in ('JOB_ID','filename', 'databasename',
                                                             'schemaname', 'tablename',
                                                             'column_preserve', 'min_rows', 'to_addr')))
