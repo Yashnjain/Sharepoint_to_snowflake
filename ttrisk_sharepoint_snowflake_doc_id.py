@@ -46,8 +46,9 @@ logging.basicConfig(
     filename=log_file_location)
 
 # receiver_email = 'indiapowerit@biourja.com, DAPower@biourja.com'
+receiver_email = 'imam.khan@biourja.com, yashnjain@biourja.com'
 
-receiver_email = 'priyanka.solanki@biourja.com'
+# receiver_email = 'priyanka.solanki@biourja.com'
 def Path_By_Document_id(url,id,filename_html):
     """Downloads a html file from Sharepoint.
 
@@ -313,7 +314,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 # Retrieve data from excel file
 
                 df = get_temp_df(pathname, filename, sheetname)
-                if filename == "Daily On Hand Inventory Report v2.1.xlsx":
+                if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
                     df = inv_df_maker(df)
                 if df is None:
                     # File could not be retrieved, move onto next row in table
@@ -532,7 +533,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                         COPY INTO {} file_format=(type=csv
                         skip_header=1 field_optionally_enclosed_by = '"' empty_field_as_null=true escape_unenclosed_field=None)
                         '''.format(tablename))
-                if filename == "Daily On Hand Inventory Report v2.1.xlsx":
+                if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
                     duplicate_query=f'''delete from {tablename} where SITE is NULL;'''
                     cur = conn.cursor()
                     cur.execute(duplicate_query)
@@ -655,7 +656,7 @@ if __name__ == "__main__":
         df_driver.columns = [x.upper() for x in df_driver.columns]
         df_driver['ROW_CHECK_MINIMUM'] = df_driver['ROW_CHECK_MINIMUM'].fillna(1).astype(int)
         df_driver = df_driver[df_driver['SYNC_NOW'] == 'Y']
-        # df_driver = df_driver.iloc[1:2]
+        # df_driver = df_driver.iloc[5:6]
         i=0
         while (i==0 or (len(con_abort)>0 and i<3)):
             con_abort = upload_df_driver_to_db(df_driver,con_abort)

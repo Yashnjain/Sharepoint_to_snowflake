@@ -266,7 +266,7 @@ def upload_df_driver_to_db(df_driver):
             # Retrieve data from excel file
 
             df = get_temp_df(pathname, filename, sheetname)
-            if filename == "Daily On Hand Inventory Report v2.1.xlsx":
+            if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
                 df = inv_df_maker(df)
             if df is None:
                 # File could not be retrieved, move onto next row in table
@@ -488,7 +488,7 @@ def upload_df_driver_to_db(df_driver):
                     COPY INTO {} file_format=(type=csv
                     skip_header=1 field_optionally_enclosed_by = '"' empty_field_as_null=true escape_unenclosed_field=None)
                     '''.format(tablename))
-            if filename == "Daily On Hand Inventory Report v2.1.xlsx":
+            if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
                 duplicate_query=f'''delete from {tablename} where SITE is NULL;'''
                 cur = conn.cursor()
                 cur.execute(duplicate_query)
