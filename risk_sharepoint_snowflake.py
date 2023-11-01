@@ -235,6 +235,8 @@ def upload_df_driver_to_db(df_driver):
             filename = x['XLSXFILENAME']
             sheetname = x['SHEETNAME'].split(";")
             jobname = x['DEPARTMENT']
+
+            # jobname = "BIO_PAD01 " + jobname
             
             # databasename = 'POWERDB'
             databasename = x['DATABASENAME']
