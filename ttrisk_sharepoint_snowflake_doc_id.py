@@ -312,7 +312,8 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     filename=log_file_location)
                 bu_alerts.bulog(process_name=f'{jobname}_SHAREPOINT_SNOWFLAKE', database='POWERDB', status='Started',
                                 table_name=schemaname + '.' + tablename, row_count=0, log=str(j), warehouse="ITPYTHON_WH", process_owner='IMAM')
-
+                conn = get_connection(role=f'OWNER_{databasename}',
+                                    database=databasename, schema=schemaname)
                 # Retrieve data from excel file
 
                 df = get_temp_df(pathname, filename, sheetname)
@@ -328,8 +329,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 primary_key_list = []
                 table = databasename + '.' + schemaname + '.' + tablename
                 query_primary_key = f'''SHOW PRIMARY KEYS IN {table}'''
-                conn = get_connection(role=f'OWNER_{databasename}',
-                                    database=databasename, schema=schemaname)
+                
                 cursor = conn.cursor()
                 cursor.execute(query_primary_key)
                 result = cursor.fetchall()
