@@ -13,7 +13,6 @@ import sharepy
 import yaml
 import json
 import re
-from bs4 import BeautifulSoup
 # import dropbox
 import email.message
 import smtplib
@@ -27,16 +26,8 @@ for handler in logging.root.handlers[:]:
 
 global variable_dict 
 # global log_file_location
-log_file_location = os.getcwd() + '\\' + 'logs' + '\\' + 'RISK_SHP_SF_BY_DOC_ID_LOGS.txt'
-download_file_location = os.getcwd() + '\\' + 'download' +'\\'
-# delecte the all downloaded file from download folder
-if os.path.isdir(download_file_location ):
-    for file_name in os.listdir(download_file_location):
-        # construct full file path
-        file = download_file_location + file_name
-        if os.path.isfile(file):
-            print('Deleting file:', file)
-            os.remove(file)
+
+log_file_location = os.getcwd() + '\\' + 'logs' + '\\' + 'RISK_SHP_SF_LOGS.txt'
 if os.path.isfile(log_file_location):
     os.remove(log_file_location)
 
@@ -45,44 +36,10 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] - %(message)s',
     filename=log_file_location)
 
-# receiver_email = 'indiapowerit@biourja.com, DAPower@biourja.com'
-receiver_email = 'imam.khan@biourja.com, yashnjain@biourja.com'
+receiver_email = 'indiapowerit@biourja.com, DAPower@biourja.com'
 
-# receiver_email = 'priyanka.solanki@biourja.com'
-def Path_By_Document_id(url,id,filename_html):
-    """Downloads a html file from Sharepoint.
-
-    Args:
-        url : the path to the file
-        id : the document id to the file
-        filename_html : the file needed to be retrieved
-        
-
-    Returns:
-        df : the dataframe containing contents of the sheet
-        or
-        None : wherein the file does not exist
-    """
- 
-    try:
-                
-        r = s.getfile(url.format(id), filename=download_file_location  + filename_html)
-        if r.status_code == 200:
-            HTMLFile = open(download_file_location  + filename_html, "r")
-            index = HTMLFile.read()
-            S = BeautifulSoup(index, 'lxml')
-            file_name= S.title.string
-            str_content = S.encode_contents()
-            folder_path = str(str_content)[str(str_content).find("ParentFolderFullUrl"):].split(',')[0].split('":')[-1].replace('"','') 
-            final_path = folder_path+'/'+file_name 
-            if "\\\\u0027s \\\\u0026" in final_path:
-                final_path = final_path.replace("\\\\u0027s \\\\u0026 ", "'s & " )
-            return  final_path
-    except Exception as ex:
-            print("Exception caught in spdownload : ", ex)
-            logging.exception(f'Exception caught in spdownload: {ex}')
-            raise ex     
-def spdownload(spt, final_path,filename,sheetname):
+# receiver_email = 'rahul.chaturvedi@biourja.com'
+def spdownload(spt, pathname, filename, sheetname):
     """Downloads a file from Sharepoint.
 
     Args:
@@ -96,20 +53,21 @@ def spdownload(spt, final_path,filename,sheetname):
         or
         None : wherein the file does not exist
     """
-    
     print('Downloading {}'.format(filename))
 
-    target = download_file_location  + os.path.basename(filename)
+    target = local_dir + os.path.basename(filename)
 
     try:
-        r = spt.getfile(final_path,filename=target)
+        r = spt.getfile(site + path.format(pathname,
+                                           filename), filename=target)
         df = pd.read_excel(target, sheet_name=sheetname, parse_dates=True)
+        os.remove(target)
         return (r, df)
+
     except Exception as ex:
-        print("Exception caught in spdownload : ", ex)
-        logging.exception(f'Exception caught in spdownload: {ex}')
-        raise ex   
-    
+        print("Exception caught during execution: ", ex)
+        logging.exception(f'Exception caught during execution: {ex}')
+        raise ex
 
 def get_table_columns(databasename,schemaname, tablename,conn):
     """
@@ -169,8 +127,7 @@ def get_temp_df(pathname, filename, sheetname):
     try:
         for sheet in sheetname:
             variable_dict = {}
-            final_path = Path_By_Document_id(url,id,filename_html)
-            (r, df) = spdownload(s, final_path, filename, sheet)
+            (r, df) = spdownload(s, pathname, filename, sheet)
             if r.status_code != 200:
                 variable_dict['reason'] = 'File does not exist on Sharepoint'
                 j = '[' + json.dumps(variable_dict) + ']'
@@ -263,8 +220,6 @@ def upload_df_driver_to_db(df_driver,con_abort):
         global column_preserve 
         global min_rows 
         global to_addr
-        global id
-        global filename_html
 
         for i, x in df_driver.iterrows():
             variable_dict = {}
@@ -279,14 +234,10 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 pathname = x['XLSXFILELOCATION'] + "/"
                 pathname = re.sub("'", "''", pathname)
                 filename = x['XLSXFILENAME']
-                filename_html = x['HTMLFILENAME']
-                id = x['DOCUMENT_ID'] 
                 sheetname = x['SHEETNAME'].split(";")
                 jobname = x['DEPARTMENT']
-
-                jobname = "BIO_PAD01 " + jobname
                 
-                # databasename = 'BUITDB_DEV'
+                # databasename = 'POWERDB_DEV'
                 databasename = x['DATABASENAME']
                 # schemaname = databasename + '.' + str(x['SCHEMA']).upper().strip()
                 schemaname = str(x['SCHEMA']).upper().strip()
@@ -295,7 +246,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 min_rows = x['ROW_CHECK_MINIMUM']
                 # to_addr = [addr for addr in str(x['EMAIL_LIST']).split(';') if '@' in addr]
                 to_addr = str(x['EMAIL_LIST']).replace(';', ',')
-                # to_addr = 'priyanka.solanki@biourja.com'
+                # to_addr = 'radha.waswani@biourja.com'
                 variable_dict = dict(((k, eval(k)) for k in ('JOB_ID','filename', 'databasename',
                                                             'schemaname', 'tablename',
                                                             'column_preserve', 'min_rows', 'to_addr')))
@@ -316,7 +267,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                 # Retrieve data from excel file
 
                 df = get_temp_df(pathname, filename, sheetname)
-                if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
+                if filename == "Daily On Hand Inventory Report v2.1.xlsx":
                     df = inv_df_maker(df)
                 if df is None:
                     # File could not be retrieved, move onto next row in table
@@ -535,7 +486,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                         COPY INTO {} file_format=(type=csv
                         skip_header=1 field_optionally_enclosed_by = '"' empty_field_as_null=true escape_unenclosed_field=None)
                         '''.format(tablename))
-                if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
+                if filename == "Daily On Hand Inventory Report v2.1.xlsx":
                     duplicate_query=f'''delete from {tablename} where SITE is NULL;'''
                     cur = conn.cursor()
                     cur.execute(duplicate_query)
@@ -643,22 +594,16 @@ if __name__ == "__main__":
         # Connecting to Sharepoint and downloading the file with sync params
         s = sharepy.connect(site, username, password)
         logging.info("Connected to sharepoint")
-        filename_html = r'SNOWFLAKE_SYNC_PARAMS.html'
-        spfile_xml = r'SNOWFLAKE_SYNC_PARAMS.xlsx'
-
+        spfile = r'SNOWFLAKE_SYNC_PARAMS.xlsx'
         local_dir = r'C:/temp/'
-        id= '5686'
-        url='https://biourja.sharepoint.com/itdev/_layouts/15/DocIdRedir.aspx?ID=DOCID-2131445040-{0}&action=default&mobileredirect=true'
-       
-        final_path = Path_By_Document_id(url,id,filename_html)
-        # os.remove(target)
-        (r, df_driver) = spdownload(s, final_path,spfile_xml, 'PARAMS')
-        
+
+        (r, df_driver) = spdownload(s, "/IT", spfile, 'PARAMS')
         logging.info("df_driver fetched properly from spdownloads")
         df_driver.columns = [x.upper() for x in df_driver.columns]
-        df_driver['ROW_CHECK_MINIMUM'] = df_driver['ROW_CHECK_MINIMUM'].fillna(1).astype(int)
+        df_driver['ROW_CHECK_MINIMUM'] = df_driver['ROW_CHECK_MINIMUM'].fillna(
+            1).astype(int)
         df_driver = df_driver[df_driver['SYNC_NOW'] == 'Y']
-        # df_driver = df_driver.iloc[5:6]
+        # df_driver = df_driver.iloc[1:2]
         i=0
         while (i==0 or (len(con_abort)>0 and i<3)):
             con_abort = upload_df_driver_to_db(df_driver,con_abort)
