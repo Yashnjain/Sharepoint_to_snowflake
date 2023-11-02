@@ -501,7 +501,7 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     event = True
                     df.columns = [x.replace(" ","_") for x in df.columns]
                     df.columns = [re.sub(r'\W', '', x.upper()) for x in df.columns]
-                    final_table_columns = ['EXCHANGE_INSTRUMENT_CODE', 'DELIVERY_MONTH', 'BUYSELL', 'TOTAL_QUANTITY_GALLONS', 'INPUT_DATE','INSERT_DATE', 'UPDATE_DATE']
+                    final_table_columns = ['CLIENT_CODE','FUTUREOPTION','EXCHANGE_INSTRUMENT_CODE', 'DELIVERY_MONTH', 'BUYSELL', 'TOTAL_QUANTITY_GALLONS', 'INPUT_DATE','INSERT_DATE', 'UPDATE_DATE']
                     df = df[df.columns.intersection(final_table_columns)]
                     df = df[final_table_columns]
                     df = df.dropna()
@@ -515,50 +515,50 @@ def upload_df_driver_to_db(df_driver,con_abort):
                     cur.execute(delete_query) 
 
 
-                df.to_csv(csv_file, index=False, date_format='%Y-%m-%d %H:%M:%S')
+                    df.to_csv(csv_file, index=False, date_format='%Y-%m-%d %H:%M:%S')
 
-                
+                    
+                if 'MACQUARIE_UNREALIZED' in tablename:
+                    # Truncate table, remove staging file if any, upload file to staging,
+                    # and copy into table
+                    if not event:
+                        conn.cursor().execute("truncate table {}".format(tablename))
+                        conn.cursor().execute("remove @%{}".format(tablename))
+                    if add_insert:
+                        conn.cursor().execute("alter table {} add column INSERT_DATE datetime".format(tablename))
+                        print("insert date column added")
+                    if add_update:
+                        conn.cursor().execute("alter table {} add column UPDATE_DATE datetime".format(tablename))
+                        print("update date column added")
+                    conn.cursor().execute("PUT file://{} @%{} overwrite=true".format(csv_file, tablename))
+                    conn.cursor().execute('''
+                            COPY INTO {} file_format=(type=csv
+                            skip_header=1 field_optionally_enclosed_by = '"' empty_field_as_null=true escape_unenclosed_field=None)
+                            '''.format(tablename))
+                    if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
+                        duplicate_query=f'''delete from {tablename} where SITE is NULL;'''
+                        cur = conn.cursor()
+                        cur.execute(duplicate_query)
 
-                # Truncate table, remove staging file if any, upload file to staging,
-                # and copy into table
-                if not event:
-                    conn.cursor().execute("truncate table {}".format(tablename))
-                    conn.cursor().execute("remove @%{}".format(tablename))
-                if add_insert:
-                    conn.cursor().execute("alter table {} add column INSERT_DATE datetime".format(tablename))
-                    print("insert date column added")
-                if add_update:
-                    conn.cursor().execute("alter table {} add column UPDATE_DATE datetime".format(tablename))
-                    print("update date column added")
-                conn.cursor().execute("PUT file://{} @%{} overwrite=true".format(csv_file, tablename))
-                conn.cursor().execute('''
-                        COPY INTO {} file_format=(type=csv
-                        skip_header=1 field_optionally_enclosed_by = '"' empty_field_as_null=true escape_unenclosed_field=None)
-                        '''.format(tablename))
-                if filename == "EAGS Daily On Hand Inventory Report v2.1.xlsx":
-                    duplicate_query=f'''delete from {tablename} where SITE is NULL;'''
-                    cur = conn.cursor()
-                    cur.execute(duplicate_query)
+                    conn.close()
+                    logging.warning(
+                        '{} ...{} rows uploaded.'.format(tablename, len(df)))
 
-                conn.close()
-                logging.warning(
-                    '{} ...{} rows uploaded.'.format(tablename, len(df)))
-
-                # Remove csv file from local drive
-                os.remove(csv_file)
-                logging.info("CSV file removed")
-                # Bulog complete job
-                j = '[' + json.dumps(variable_dict) + ']'
-                bu_alerts.bulog(process_name=f'{jobname}_SHAREPOINT_SNOWFLAKE', database='POWERDB', status='Completed',
-                                table_name=schemaname + '.' + tablename, row_count=len(df), log=str(j), warehouse="ITPYTHON_WH", process_owner='IMAM')
-                if len(to_addr) > 0:
-                    bu_alerts.send_mail(
-                        receiver_email=to_addr,
-                        mail_subject='JOB SUCCESS {0}_SHP->SF - {1}'.format(jobname,
-                            schemaname+"."+tablename),
-                        mail_body='{0} completed successfully, Attached logs'.format(
-                            schemaname+"."+tablename),
-                        attachment_location=log_file_location
+                    # Remove csv file from local drive
+                    os.remove(csv_file)
+                    logging.info("CSV file removed")
+                    # Bulog complete job
+                    j = '[' + json.dumps(variable_dict) + ']'
+                    bu_alerts.bulog(process_name=f'{jobname}_SHAREPOINT_SNOWFLAKE', database='POWERDB', status='Completed',
+                                    table_name=schemaname + '.' + tablename, row_count=len(df), log=str(j), warehouse="ITPYTHON_WH", process_owner='IMAM')
+                    if len(to_addr) > 0:
+                        bu_alerts.send_mail(
+                            receiver_email=to_addr,
+                            mail_subject='JOB SUCCESS {0}_SHP->SF - {1}'.format(jobname,
+                                schemaname+"."+tablename),
+                            mail_body='{0} completed successfully, Attached logs'.format(
+                                schemaname+"."+tablename),
+                            attachment_location=log_file_location
                     )
             except Exception as e:
                 # Time travle for no table empty 
